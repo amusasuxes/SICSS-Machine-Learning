@@ -203,55 +203,11 @@ test_data <- shuff_predictors[-data_index,]
 #Training the model
 fitControl <- trainControl(method= "repeatedcv",
                            number = 10,
-                           repeats = 5,
-                           sampling="smote",
+                           repeats = 2,
+                           #sampling="smote",
                            search = "random",
                            classProbs = TRUE,
                            summaryFunction = twoClassSummary)
-#randomforest
-set.seed(1234)
-model_rf <- train(g_equitable~.,
-                  data=train_data,
-                  method="rf", tuneLength=10,
-                  trControl= fitControl, metric= "ROC")
-pred_rf <- predict(model_rf, test_data)
-cm_rf <- confusionMatrix(pred_rf, test_data$g_equitable, positive = "equitable")
-cm_rf
-
-#svm
-set.seed(1234)
-model_svm <-train(g_equitable~.,
-                  train_data,
-                  method="svmRadial",
-                  trControl= fitControl,tuneLength=10,metric= "ROC")
-pred_svm <- predict(model_svm, test_data)
-cm_svm <- confusionMatrix(pred_svm, test_data$g_equitable, positive = "equitable")
-cm_svm
-
-#Gradient Boost
-set.seed(1234)
-model_gb <- train(g_equitable~.,
-                  train_data,
-                  method="xgbTree",
-                  metric= "ROC",tuneLength=10,
-                  trControl= fitControl,verbosity=0)
-pred_gb <- predict(model_gb, test_data)
-cm_gb <- confusionMatrix(pred_gb, test_data$g_equitable, positive = "equitable")
-cm_gb
-
-#Decision Tree
-set.seed(1234)
-model_dt <- train(g_equitable~.,
-                  train_data,
-                  method="rpart",
-                  metric= "ROC",tuneLength=10,
-                  trControl= fitControl)
-pred_dt <- predict(model_dt, test_data)
-cm_dt <- confusionMatrix(pred_dt, test_data$g_equitable, positive = "equitable")
-cm_dt
-
-plot(model_dt$finalModel)
-text(model_dt$finalModel)
 
 ### Logistic Reg
 set.seed(1234)
@@ -263,12 +219,66 @@ pred_logis <- predict(model_logis, test_data)
 cm_logis <- confusionMatrix(pred_logis, test_data$g_equitable, positive = "equitable")
 cm_logis
 
+#svm
+set.seed(1234)
+model_svm <-train(g_equitable~.,
+                  train_data,
+                  method="svmRadial",
+                  trControl= fitControl,tuneLength=20,metric= "ROC")
+pred_svm <- predict(model_svm, test_data)
+cm_svm <- confusionMatrix(pred_svm, test_data$g_equitable, positive = "equitable")
+cm_svm
+
+#KNN
+set.seed(1234)
+model_knn <- train(g_equitable~.,
+                   train_data,
+                   method="knn",
+                   metric= "ROC",tuneLength=20,
+                   trControl= fitControl)
+pred_knn <- predict(model_knn, test_data)
+cm_knn <- confusionMatrix(pred_knn, test_data$g_equitable, positive = "equitable")
+cm_knn
+
+#randomforest
+set.seed(1234)
+model_rf <- train(g_equitable~.,
+                  data=train_data,
+                  method="rf", tuneLength=20,
+                  trControl= fitControl, metric= "ROC")
+pred_rf <- predict(model_rf, test_data)
+cm_rf <- confusionMatrix(pred_rf, test_data$g_equitable, positive = "equitable")
+cm_rf
+
+#GB
+set.seed(1234)
+model_gb <- train(g_equitable~.,
+                  train_data,
+                  method="xgbTree",
+                  metric= "ROC",tuneLength=20,
+                  trControl= fitControl,verbosity=0)
+pred_gb <- predict(model_gb, test_data)
+cm_gb <- confusionMatrix(pred_gb, test_data$g_equitable, positive = "equitable")
+cm_gb
+
+#Decision Tree
+set.seed(1234)
+model_dt <- train(g_equitable~.,
+                  train_data,
+                  method="rpart",
+                  metric= "ROC",tuneLength=20,
+                  trControl= fitControl)
+pred_dt <- predict(model_dt, test_data)
+cm_dt <- confusionMatrix(pred_dt, test_data$g_equitable, positive = "equitable")
+cm_dt
+
 ## Final model comparison
 result <- rbind("LR" = cm_logis$byClass, 
                 "DT" = cm_dt$byClass,
                 "RF" = cm_rf$byClass, 
-                "SVM" = cm_svm$byClass,
-                "GB" = cm_gb$byClass) %>%
+                "GB" = cm_gb$byClass,
+                "KNN" = cm_knn$byClass,
+                "SVM" = cm_svm$byClass) %>%
   ## t() is used to transpose the data
   t() %>% data.frame() %>%  
   rownames_to_column ("Metric") %>% 
@@ -284,6 +294,7 @@ rf.probs=predict(model_rf, test_data,type="prob")
 svm.probs=predict(model_svm, test_data,type="prob")
 dt.probs=predict(model_dt, test_data,type="prob")
 lr.probs=predict(model_logis, test_data,type="prob")
+knn.probs=predict(model_knn, test_data,type="prob")
 
 gbm.ROC <- roc(predictor=gbm.probs$equitable,
                response=test_data$g_equitable,
@@ -297,17 +308,21 @@ svm.ROC <- roc(predictor=svm.probs$equitable,
 dt.ROC <- roc(predictor=dt.probs$equitable,
               response=test_data$g_equitable,
               levels=rev(levels(test_data$g_equitable)))
+knn.ROC <- roc(predictor=knn.probs$equitable,
+              response=test_data$g_equitable,
+              levels=rev(levels(test_data$g_equitable)))
 lr.ROC <- roc(predictor=lr.probs$equitable,
               response=test_data$g_equitable,
               levels=rev(levels(test_data$g_equitable)))
-gbm.ROC$auc; rf.ROC$auc; svm.ROC$auc; dt.ROC$auc; lr.ROC$auc
+gbm.ROC$auc; rf.ROC$auc; svm.ROC$auc; dt.ROC$auc; knn.ROC$auc; lr.ROC$auc
 #Area under the curve: 
 plot(gbm.ROC,col="blue",legacy.axes=T)
 plot(rf.ROC,col="red",add=T)
 plot(svm.ROC,col="green",add=T)
 plot(dt.ROC,col="black",add=T)
+plot(knn.ROC,col="brown",add=T)
 plot(lr.ROC,col="yellow",add=T)
 
-legend("bottomright", legend=c("GBM", "RF","SVM","DT","LR"),
-       col=c("blue","red","green","black","yellow"), lwd=2)
+legend("bottomright", legend=c("GBM", "RF","SVM","DT","KNN","LR"),
+       col=c("blue","red","green","black","brown","yellow"), lwd=2)
 
